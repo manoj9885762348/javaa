@@ -1,0 +1,46 @@
+name: Create ServiceNow Incident
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create-incident:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v2
+
+    - name: Install jq
+      run: sudo apt-get install -y jq
+
+    - name: Create ServiceNow Incident
+      env:
+        SERVICENOW_INSTANCE: ${{ secrets.SERVICENOW_INSTANCE }}
+        SERVICENOW_USER: ${{ secrets.SERVICENOW_USER }}
+        SERVICENOW_PASSWORD: ${{ secrets.SERVICENOW_PASSWORD }}
+        SERVICENOW_CLIENT_ID: ${{ secrets.SERVICENOW_CLIENT_ID }}
+        SERVICENOW_CLIENT_SECRET: ${{ secrets.SERVICENOW_CLIENT_SECRET }}
+        SERVICENOW_ACCESS_TOKEN: ${{ secrets.SERVICENOW_ACCESS_TOKEN }}
+      run: |
+        ISSUE_TITLE="${{ github.event.issue.title }}"
+        ISSUE_BODY="${{ github.event.issue.body }}"
+        
+        # If using basic authentication
+        INCIDENT_PAYLOAD=$(jq -n \
+          --arg short_description "$ISSUE_TITLE" \
+          --arg description "$ISSUE_BODY" \
+          '{short_description: $short_description, description: $description}')
+
+        curl -X POST \
+          -H "Content-Type: application/json" \
+          -u "$SERVICENOW_USER:$SERVICENOW_PASSWORD" \
+          -d "$INCIDENT_PAYLOAD" \
+          "https://${{ env.SERVICENOW_INSTANCE }}/api/now/table/incident"
+
+        # If using OAuth (uncomment and use this block)
+        # curl -X POST \
+        #   -H "Content-Type: application/json" \
+        #   -H "Authorization: Bearer $SERVICENOW_ACCESS_TOKEN" \
+        #   -d "$INCIDENT_PAYLOAD" \
+        #   "https://${{ env.SERVICENOW_INSTANCE }}/api/now/table/incident"
